@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@types/node": "^24.9.1",
+    "pm2": "^6.0.13"
+  },
+  "scripts": {
+    "build:win": "bun build ./index.ts --compile --target=bun-windows-x64 --outfile ./build/bm-win.exe",
+    "build:mac-arm": "bun build ./index.ts --compile --target=bun-darwin-arm64 --outfile ./build/bm-mac-arm.bin"
+  },
+  "type": "module"
+}
