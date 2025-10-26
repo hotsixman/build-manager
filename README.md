@@ -10,9 +10,30 @@
 - 빌드된 프로그램의 데이터 및 버전을 관리하는 DB 관리
 
 # Class
+## MainProcess
+- 메인 프로세스 관리
+
 ## AppBuilder
 - `.build.env` 등을 이용하여 앱 빌드
 - 런타임의 `build.js`를 호출
+
+## BuildData
+- 빌드에 관한 데이터
+
+## DB
+
+## Logger
+
+## WebServer
+
+## Runner
+- 빌드된 프로그램의 실행을 담당
+
+## ReadLine
+- 입력출력 담당
+
+## EnvManager
+- env를 관리
 
 # 설정 파일 (config.js로 관리)
 

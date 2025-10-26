@@ -1,3 +1,1 @@
-import { AppBuilder } from "./src/class/AppBuilder.js";
-
-console.log(AppBuilder.randomBuildId())
+import './src/script/main.js'

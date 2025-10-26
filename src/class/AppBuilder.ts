@@ -1,22 +1,28 @@
 import path from "node:path";
 import fs from 'node:fs';
-import { BuildArg, BuildFunction } from "../types.js";
+import { BuildFunction } from "../types.js";
 import { Logger } from "./Logger.js";
+import { DB } from "./DB.js";
+import { EnvManager } from "./EnvManager.js";
 
 export class AppBuilder {
     static randomBuildId() {
         return Math.floor(Math.random() * (10 ** 16)).toString(16);
     }
 
-    private buildFunction?: BuildFunction<any>;
+    private buildFunction?: BuildFunction<any, any>;
     private logger: Logger;
+    private db: DB;
+    private envManager: EnvManager;
 
     constructor({
-        logger
-    }: {
-        logger: Logger
-    }) {
+        logger,
+        db,
+        envManager
+    }: AppBuilderConstructorArg) {
         this.logger = logger;
+        this.db = db;
+        this.envManager = envManager;
     }
 
     private async loadBuildFunction() {
@@ -56,10 +62,28 @@ export class AppBuilder {
         return this.buildFunction;
     }
 
-    async build(arg: BuildArg): Promise<boolean> {
+    async build({ buildId, param }: BuildArg): Promise<boolean> {
         const buildFunction = await this.loadBuildFunction();
         if (!buildFunction) {
             return false;
         }
+
+        const buildData = this.db.createBuildData(buildId);
+        const buildResultData = await buildFunction({
+            buildId,
+            env: this.envManager.getBuildEnv(),
+            param: param ?? {}
+        });
     }
+}
+
+export type AppBuilderConstructorArg = {
+    logger: Logger;
+    db: DB;
+    envManager: EnvManager;
+}
+
+export type BuildArg = {
+    buildId: string;
+    param?: Record<string, any>;
 }

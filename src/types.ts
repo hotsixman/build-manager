@@ -1,13 +1,12 @@
 export type BuildFunctionArg<
-    Env extends Record<string, string | undefined>
+    Env extends Record<string, string>,
+    Param extends Record<string, string>
 > = {
     env: Env;
+    param: Param;
+    buildId: string;
 };
 export type BuildFunction<
-    Env extends Record<string, string | undefined>
-> = (arg: BuildFunctionArg<Env>) => void | Promise<void>;
-
-// AppBuilder
-export type BuildArg = {
-    buildId: string;
-}
+    Env extends Record<string, string>,
+    Param extends Record<string, any>
+> = (arg: BuildFunctionArg<Env, Param>) => void | Promise<void>;
