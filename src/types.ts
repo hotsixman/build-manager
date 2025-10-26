@@ -9,4 +9,4 @@ export type BuildFunctionArg<
 export type BuildFunction<
     Env extends Record<string, string>,
     Param extends Record<string, any>
-> = (arg: BuildFunctionArg<Env, Param>) => void | Promise<void>;
+> = (arg: BuildFunctionArg<Env, Param>) => Record<string, any> | Promise<Record<string, any>>;

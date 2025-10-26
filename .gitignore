@@ -8,3 +8,5 @@ package-lock.json
 bun.lock
 
 build
+
+main.db

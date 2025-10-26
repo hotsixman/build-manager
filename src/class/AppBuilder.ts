@@ -4,6 +4,7 @@ import { BuildFunction } from "../types.js";
 import { Logger } from "./Logger.js";
 import { DB } from "./DB.js";
 import { EnvManager } from "./EnvManager.js";
+import { BuildData } from "./BuildData.js";
 
 export class AppBuilder {
     static randomBuildId() {
@@ -14,6 +15,8 @@ export class AppBuilder {
     private logger: Logger;
     private db: DB;
     private envManager: EnvManager;
+    private queue: { buildId: string, param: Record<string, any>, resolver: (success: boolean) => void }[] = [];
+    private queueRunning: boolean = false;
 
     constructor({
         logger,
@@ -40,7 +43,7 @@ export class AppBuilder {
         }
 
         if (!fs.statSync(buildFunctionPath).isFile()) {
-            this.logger.error(`"${buildFunctionPath}" is not an es-module.`);
+            this.logger.error(`"${buildFunctionPath}" is not a file.`);
             return null;
         }
 
@@ -68,12 +71,60 @@ export class AppBuilder {
             return false;
         }
 
-        const buildData = this.db.createBuildData(buildId);
-        const buildResultData = await buildFunction({
-            buildId,
-            env: this.envManager.getBuildEnv(),
-            param: param ?? {}
+        const buildData = this.db.getBuildData(buildId);
+        if (!buildData) {
+            this.logger.error(`Cannot find build data where build id is ${buildId}`);
+            return false;
+        }
+
+        this.db.updateBuildData(buildId, { status: 'building' });
+        try {
+            var buildResultData = await buildFunction({
+                buildId,
+                env: this.envManager.getBuildEnv(),
+                param: param ?? {}
+            });
+        }
+        catch (err) {
+            this.logger.error(err);
+            this.db.updateBuildData(buildId, { status: 'buildError' });
+            return false;
+        }
+
+        this.db.updateBuildData(buildId, {
+            status: 'builded',
+            result: buildResultData
         });
+        return true;
+    }
+
+    enqueue(buildData: BuildData, param: Record<string, any>, resolver: (success: boolean) => void) {
+        this.db.updateBuildData(buildData.id, { status: 'enqueued' });
+        this.queue.push({
+            buildId: buildData.id,
+            param,
+            resolver
+        });
+        this.runqueue();
+    }
+
+    private runqueue() {
+        if (this.queueRunning) return;
+        this.queueRunning = true;
+
+        queueMicrotask(async () => {
+            while (this.queue.length > 0) {
+                const { buildId, param, resolver } = this.queue.shift();
+                try {
+                    const success = await this.build({ buildId, param });
+                    resolver(success);
+                }
+                catch {
+                    resolver(false);
+                }
+            }
+            this.queueRunning = false;
+        })
     }
 }
 
