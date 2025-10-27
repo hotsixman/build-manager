@@ -1,31 +1,23 @@
 import path from "node:path";
 import fs from 'node:fs';
 import { BuildFunction } from "../types.js";
-import { Logger } from "./Logger.js";
-import { DB } from "./DB.js";
-import { EnvManager } from "./EnvManager.js";
 import { BuildData } from "./BuildData.js";
+import { MainProcess } from "./MainProcess.js";
 
 export class AppBuilder {
     static randomBuildId() {
         return Math.floor(Math.random() * (10 ** 16)).toString(16);
     }
 
+    private mainProcess: MainProcess;
     private buildFunction?: BuildFunction<any, any>;
-    private logger: Logger;
-    private db: DB;
-    private envManager: EnvManager;
     private queue: { buildId: string, param: Record<string, any>, resolver: (success: boolean) => void }[] = [];
     private queueRunning: boolean = false;
 
     constructor({
-        logger,
-        db,
-        envManager
+        mainProcess
     }: AppBuilderConstructorArg) {
-        this.logger = logger;
-        this.db = db;
-        this.envManager = envManager;
+        this.mainProcess = mainProcess;
     }
 
     private async loadBuildFunction() {
@@ -33,17 +25,17 @@ export class AppBuilder {
             return this.buildFunction;
         }
 
-        let buildFunctionPath = path.join(process.cwd(), 'build.js');
+        let buildFunctionPath = path.join(process.cwd(), 'script', 'build.js');
         if (!fs.existsSync(buildFunctionPath)) {
-            buildFunctionPath = path.join(process.cwd(), 'build.ts');
+            buildFunctionPath = path.join(process.cwd(), 'script', 'build.ts');
             if (!fs.existsSync(buildFunctionPath)) {
-                this.logger.error('"build.js" or "build.ts" not exists.');
+                this.mainProcess.logger.error('"build.js" or "build.ts" not exists.');
                 return null;
             }
         }
 
         if (!fs.statSync(buildFunctionPath).isFile()) {
-            this.logger.error(`"${buildFunctionPath}" is not a file.`);
+            this.mainProcess.logger.error(`"${buildFunctionPath}" is not a file.`);
             return null;
         }
 
@@ -51,13 +43,13 @@ export class AppBuilder {
             var module = await import(buildFunctionPath);
         }
         catch (err) {
-            this.logger.error(`Cannot load module "${buildFunctionPath}".`);
-            this.logger.error(err);
+            this.mainProcess.logger.error(`Cannot load module "${buildFunctionPath}".`);
+            this.mainProcess.logger.error(err);
             return null;
         }
 
         if (typeof (module?.default) !== "function") {
-            this.logger.error(`Default export from "${buildFunctionPath}" is not a function.`);
+            this.mainProcess.logger.error(`Default export from "${buildFunctionPath}" is not a function.`);
             return null;
         }
 
@@ -71,27 +63,27 @@ export class AppBuilder {
             return false;
         }
 
-        const buildData = this.db.getBuildData(buildId);
+        const buildData = this.mainProcess.db.getBuildData(buildId);
         if (!buildData) {
-            this.logger.error(`Cannot find build data where build id is ${buildId}`);
+            this.mainProcess.logger.error(`Cannot find build data where build id is ${buildId}`);
             return false;
         }
 
-        this.db.updateBuildData(buildId, { status: 'building' });
+        this.mainProcess.db.updateBuildData(buildId, { status: 'building' });
         try {
             var buildResultData = await buildFunction({
                 buildId,
-                env: this.envManager.getBuildEnv(),
+                env: this.mainProcess.envManager.getBuildEnv(),
                 param: param ?? {}
             });
         }
         catch (err) {
-            this.logger.error(err);
-            this.db.updateBuildData(buildId, { status: 'buildError' });
+            this.mainProcess.logger.error(err);
+            this.mainProcess.db.updateBuildData(buildId, { status: 'buildError' });
             return false;
         }
 
-        this.db.updateBuildData(buildId, {
+        this.mainProcess.db.updateBuildData(buildId, {
             status: 'builded',
             result: buildResultData
         });
@@ -99,7 +91,7 @@ export class AppBuilder {
     }
 
     enqueue(buildData: BuildData, param: Record<string, any>, resolver: (success: boolean) => void) {
-        this.db.updateBuildData(buildData.id, { status: 'enqueued' });
+        this.mainProcess.db.updateBuildData(buildData.id, { status: 'enqueued' });
         this.queue.push({
             buildId: buildData.id,
             param,
@@ -129,9 +121,7 @@ export class AppBuilder {
 }
 
 export type AppBuilderConstructorArg = {
-    logger: Logger;
-    db: DB;
-    envManager: EnvManager;
+    mainProcess: MainProcess;
 }
 
 export type BuildArg = {

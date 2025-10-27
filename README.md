@@ -3,7 +3,7 @@
 - 빌드된 프로그램의 버전 관리
 - 빌드된 프로그램의 실행
 
-# 메인 스크립트 (main.ts)
+# 메인 스크립트 (index.ts)
 - 빌드를 위한 서버 생성
     - webhook
     - 관리용 API
@@ -24,7 +24,7 @@
 
 ## Logger
 
-## WebServer
+## WebhookServer
 
 ## Runner
 - 빌드된 프로그램의 실행을 담당

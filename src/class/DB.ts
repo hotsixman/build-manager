@@ -3,24 +3,26 @@ import { BuildData, BuildDataStatus } from './BuildData.js';
 
 export class DB {
     static db: Database;
-    private static query = {
-        tableCheck: "SELECT * FROM `sqlite_master` WHERE `type`='table' AND `name`=$tableName",
-        createBuildDataTable: `
-        CREATE TABLE IF NOT EXISTS buildData (
+    static {
+        this.db = new Database('main.db', { strict: true });
+        this.db.run(`CREATE TABLE IF NOT EXISTS buildData (
             id TEXT PRIMARY KEY,
             status INTEGER NOT NULL,
             result JSON
-        );`,
-        getBuildData: "SELECT * FROM `buildData` WHERE `id` = $id",
-        insertBuildData: "INSERT INTO `buildData` (`id`, `status`, `result`) VALUES ($1, $2, $3)",
-        updateBuildData: "UPDATE `buildData` SET `status` = $1, `result` = $2 WHERE `id` = $3"
-    };
-    static {
-        this.db = new Database('main.db');
-        this.db.run(this.query.createBuildDataTable);
+        );`);
     };
 
     buildDataCache = new BuildDataCache();
+
+    checkBuildId(id: string) {
+        const data = DB.db.query<{ count: number }, { id: string }>("SELECT COUNT(*) as `count` FROM `buildData` WHERE `id` = $id").get({ id });
+        if (data.count > 0) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
 
     getBuildData(id: string) {
         const cache = this.buildDataCache.get(id);
@@ -28,7 +30,7 @@ export class DB {
             return cache;
         }
 
-        const data = DB.db.query<DBSchema.buildData, { id: string }>(DB.query.getBuildData).get({ id });
+        const data = DB.db.query<DBSchema.buildData, { id: string }>("SELECT * FROM `buildData` WHERE `id` = $id").get({ id });
         if (!data) {
             return null;
         }
@@ -44,9 +46,17 @@ export class DB {
     }
 
     createBuildData(id: string) {
+        if (this.checkBuildId(id)) {
+            return null;
+        }
+
         const buildData = new BuildData({ id });
 
-        DB.db.run<[string, number, string | null]>(DB.query.insertBuildData, [buildData.id, BuildData.statusEnum[buildData.status], buildData.result ? JSON.stringify(buildData.result) : null]);
+        DB.db.run<[string, number, string | null]>("INSERT INTO `buildData` (`id`, `status`, `result`) VALUES ($1, $2, $3)", [
+            buildData.id,
+            BuildData.statusEnum[buildData.status],
+            buildData.result ? JSON.stringify(buildData.result) : null
+        ]);
         this.buildDataCache.set(buildData.id, buildData);
 
         return buildData;
@@ -58,7 +68,7 @@ export class DB {
             return false;
         }
 
-        DB.db.run<[number, string | null, string]>(DB.query.updateBuildData, [
+        DB.db.run<[number, string | null, string]>("UPDATE `buildData` SET `status` = $1, `result` = $2 WHERE `id` = $3", [
             BuildData.statusEnum[status ?? buildData.status],
             result === undefined ? (buildData.result ? JSON.stringify(buildData.result) : null) : JSON.stringify(result),
             id

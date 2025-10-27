@@ -14,14 +14,6 @@ export class ReadLine {
         return ReadLine.interface;
     }
 
-    mainProcess: MainProcess;
-
-    constructor({
-        mainProcess
-    }: ReadlineConstuctorArg) {
-        this.mainProcess = mainProcess;
-    }
-
     question(question: string) {
         return new Promise<string>((res) => {
             const rl = ReadLine.loadInterface();

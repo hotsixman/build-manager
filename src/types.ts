@@ -9,4 +9,13 @@ export type BuildFunctionArg<
 export type BuildFunction<
     Env extends Record<string, string>,
     Param extends Record<string, any>
-> = (arg: BuildFunctionArg<Env, Param>) => Record<string, any> | Promise<Record<string, any>>;
+> = (arg: BuildFunctionArg<Env, Param>) => MaybePromise<Record<string, any>>;
+
+export type WebhookFunction<
+    Param extends Record<string, any>
+> = () => MaybePromise<
+    { build: true, param: Param } |
+    { build: false }
+>;
+
+type MaybePromise<T> = T | Promise<T>;
