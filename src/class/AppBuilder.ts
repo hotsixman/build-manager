@@ -1,17 +1,12 @@
 import path from "node:path";
 import fs from 'node:fs';
 import { BuildFunction } from "../types.js";
-import { BuildData } from "./BuildData.js";
 import { MainProcess } from "./MainProcess.js";
 
 export class AppBuilder {
-    static randomBuildId() {
-        return Math.floor(Math.random() * (10 ** 16)).toString(16);
-    }
-
     private mainProcess: MainProcess;
     private buildFunction?: BuildFunction<any, any>;
-    private queue: { buildId: string, param: Record<string, any>, resolver: (success: boolean) => void }[] = [];
+    private queue: { buildId: string, param: Record<string, any>, next: (success: boolean) => void }[] = [];
     private queueRunning: boolean = false;
 
     constructor({
@@ -90,12 +85,12 @@ export class AppBuilder {
         return true;
     }
 
-    enqueue(buildData: BuildData, param: Record<string, any>, resolver: (success: boolean) => void) {
-        this.mainProcess.db.updateBuildData(buildData.id, { status: 'enqueued' });
+    enqueue(buildId: string, param: Record<string, any>, next: (success: boolean) => void) {
+        this.mainProcess.db.updateBuildData(buildId, { status: 'enqueued' });
         this.queue.push({
-            buildId: buildData.id,
+            buildId: buildId,
             param,
-            resolver
+            next
         });
         this.runqueue();
     }
@@ -106,13 +101,14 @@ export class AppBuilder {
 
         queueMicrotask(async () => {
             while (this.queue.length > 0) {
-                const { buildId, param, resolver } = this.queue.shift();
+                const { buildId, param, next } = this.queue.shift();
                 try {
                     const success = await this.build({ buildId, param });
-                    resolver(success);
+                    next(success);
                 }
-                catch {
-                    resolver(false);
+                catch (err) {
+                    this.mainProcess.logger.error(err);
+                    next(false);
                 }
             }
             this.queueRunning = false;

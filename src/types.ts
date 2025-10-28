@@ -13,8 +13,8 @@ export type BuildFunction<
 
 export type WebhookFunction<
     Param extends Record<string, any>
-> = () => MaybePromise<
-    { build: true, param: Param } |
+> = (request: Bun.BunRequest) => MaybePromise<
+    { build: true, param: Param, autorun: boolean } |
     { build: false }
 >;
 

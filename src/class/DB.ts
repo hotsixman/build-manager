@@ -45,7 +45,7 @@ export class DB {
         return buildData;
     }
 
-    createBuildData(id: string) {
+    createBuildData(id: string): BuildData | null {
         if (this.checkBuildId(id)) {
             return null;
         }

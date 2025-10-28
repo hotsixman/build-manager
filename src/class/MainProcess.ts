@@ -22,6 +22,6 @@ export class MainProcess {
         this.logger = new Logger();
         this.readLine = new ReadLine();
         this.runner = new Runner();
-        this.webhookServer = new WebhookServer();
+        this.webhookServer = new WebhookServer({ mainProcess: this });
     }
 }

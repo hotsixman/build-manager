@@ -8,6 +8,9 @@ export class BuildData {
         runError: 5
     } as const;
     static statusReverseEnum = ['enqueued', 'building', 'builded', 'buildError', 'running', 'runError'] as const;
+    static randomBuildId() {
+        return Math.floor(Math.random() * (10 ** 16)).toString(16);
+    }
 
     id: string;
     status: BuildDataStatus;
