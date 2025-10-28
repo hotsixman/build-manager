@@ -16,9 +16,10 @@ export class Setting {
             const json = fs.readFileSync(jsonPath, 'utf-8');
             const settingData = JSON.parse(json);
             this.loadSettingData(settingData);
+            console.log('Successfully loaded setting.json')
         }
         catch {
-            this.mainProcess.logger.warn(null, true, 'Cannot load "setting.json".');
+            console.warn('Cannot load setting.json');
         };
     }
 

@@ -1,5 +1,4 @@
 import { WebhookFunction } from "../types.js";
-import { AppBuilder } from "./AppBuilder.js";
 import { BuildData } from "./BuildData.js";
 import { MainProcess } from "./MainProcess.js";
 import fs from 'fs';
@@ -8,7 +7,7 @@ import path from 'path';
 export class WebhookServer {
     server: Bun.Server<undefined>;
     mainProcess: MainProcess;
-    private webhookFunction?: WebhookFunction<any>;
+    private webhookFunction?: WebhookFunction<any, any>;
 
     constructor({ mainProcess }: WebhookServerConstructorArg) {
         this.mainProcess = mainProcess;
@@ -26,30 +25,30 @@ export class WebhookServer {
                         const logPath = `build/${buildId}`;
                         try {
                             const webhookFunction = await this.loadWebhookFunction();
-                            const webhookResult = await webhookFunction(req);
+                            const webhookResult = await webhookFunction(req, this.mainProcess.envManager.buildEnv);
                             if (webhookResult.build) {
-                                this.mainProcess.logger.log(logPath, true, `Build ${buildId} enqueued.`)
+                                this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, `Build ${buildId} enqueued.`)
                                 this.mainProcess.appBuilder.enqueue(buildId, webhookResult.param, (success) => {
                                     if (success) {
                                         if (webhookResult.autorun) {
                                             this.mainProcess.runner.enqueue(buildId);
                                         }
-                                        this.mainProcess.logger.log(logPath, true, `Build ${buildId} completed.`);
+                                        this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, `Build ${buildId} completed.`);
                                     }
                                     else {
-                                        this.mainProcess.logger.log(logPath, true, `Build ${buildId} failed.`);
+                                        this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, `Build ${buildId} failed.`);
                                     }
                                 })
                             }
                             else {
-                                this.mainProcess.logger.log(logPath, true, `Build ${buildId} stopped.`)
+                                this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, `Build ${buildId} stopped.`)
                                 this.mainProcess.db.updateBuildData(buildId, { status: 'stopped' });
                             }
                             return new Response();
                         }
                         catch (err) {
-                            this.mainProcess.logger.error(logPath, true, "An exception occued in webhook.");
-                            this.mainProcess.logger.error(logPath, true, err);
+                            this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, "An exception occued in webhook.");
+                            this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, err);
                             return new Response('Server Error', { status: 500 });
                         }
                     }
@@ -60,8 +59,9 @@ export class WebhookServer {
             },
             port: this.mainProcess.setting.webhookPort
         });
-        this.mainProcess.beforeTerminate(async() => {
+        this.mainProcess.beforeTerminate(async () => {
             await this.server.stop();
+            console.log('Webhook server stopped.');
         })
     }
 

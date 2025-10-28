@@ -62,7 +62,7 @@ export class AppBuilder {
         const logPath = `build/${buildId}`;
         const buildData = this.mainProcess.db.getBuildData(buildId);
         if (!buildData) {
-            this.mainProcess.logger.error(logPath, true, `Cannot find build data where build id is ${buildId}`);
+            this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, `Cannot find build data where build id is ${buildId}`);
             return false;
         }
 
@@ -72,7 +72,7 @@ export class AppBuilder {
             await fsPromise.mkdir(cwd, { recursive: true, });
             var buildResultData = await buildFunction({
                 buildId,
-                env: this.mainProcess.envManager.getBuildEnv(),
+                env: this.mainProcess.envManager.buildEnv,
                 param: param,
                 spawn: async (cmd, options) => {
                     return this.spawn(cmd, { cwd, ...options }, buildId);
@@ -80,19 +80,19 @@ export class AppBuilder {
                 cwd,
                 console: {
                     log: (...messages) => {
-                        this.mainProcess.logger.log(logPath, true, ...messages);
+                        this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, ...messages);
                     },
                     error: (...messages) => {
-                        this.mainProcess.logger.error(logPath, true, ...messages);
+                        this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, ...messages);
                     },
                     warn: (...messages) => {
-                        this.mainProcess.logger.warn(logPath, true, ...messages);
+                        this.mainProcess.logger.warn(logPath, this.mainProcess.setting.displayBuildLog, ...messages);
                     }
                 }
             });
         }
         catch (err) {
-            this.mainProcess.logger.error(logPath, true, err);
+            this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, err);
             this.mainProcess.db.updateBuildData(buildId, { status: 'buildError' });
             return false;
         }
@@ -126,7 +126,7 @@ export class AppBuilder {
                     next(success);
                 }
                 catch (err) {
-                    this.mainProcess.logger.error(logPath, true, err);
+                    this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, err);
                     next(false);
                 }
             }
@@ -149,7 +149,7 @@ export class AppBuilder {
             const logPath = `build/${buildId}`;
             while (true) {
                 const { value, done } = await outputReader.read();
-                this.mainProcess.logger.log(logPath, true, textDecoder.decode(value));
+                this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, textDecoder.decode(value));
                 if (done) break;
             }
             res(await exitcodePromise);

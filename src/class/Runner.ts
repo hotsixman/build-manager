@@ -13,8 +13,11 @@ export class Runner {
     constructor({ mainProcess }: RunnerConsturctorArg) {
         this.mainProcess = mainProcess;
         this.mainProcess.beforeTerminate(async () => {
+            const currentRunningId = this.currentRunningBuildData.id;
+            await this.deleteBuildDataProcess(currentRunningId);
+            console.log(`Process ${currentRunningId} closed.`)
             pm2.disconnect();
-            await this.deleteBuildDataProcess(this.currentRunningBuildData.id);
+            console.log('pm2 disconnected.')
         })
     }
     private get displayLog() {
@@ -65,6 +68,7 @@ export class Runner {
                     script: buildData.result.startScript,
                     cwd,
                     name: processName,
+                    env: this.mainProcess.envManager.prodEnv,
                     //output: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
                     //error: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
                     log_date_format: "[YYYY-MM-DD HH:mm:ss]",
@@ -109,7 +113,7 @@ export class Runner {
                 });
             }
         }
-        catch{}
+        catch { }
     }
 
     private pm2Connect = new Promise<void>((res, rej) => {
@@ -118,6 +122,9 @@ export class Runner {
                 return rej(err);
             }
             pm2.launchBus((err, bus) => {
+                if (err) {
+                    return rej(err);
+                }
                 bus.on('log:out', (data) => {
                     if (!this.currentRunningBuildData) return;
                     if (data.process.name === `bm.${this.currentRunningBuildData.id}`) {
@@ -134,7 +141,7 @@ export class Runner {
                 });
                 res();
             });
-        })
+        });
     });
 }
 

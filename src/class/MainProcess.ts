@@ -16,7 +16,7 @@ export class MainProcess {
     readonly runner: Runner;
     readonly webhookServer: WebhookServer;
     readonly setting: Setting;
-    private beforeTerminates: (() => any)[] = [];
+    private beforeTerminates: (() => any)[] = [() => console.log('Closing...')];
 
     constructor() {
         this.readLine = new ReadLine();
@@ -25,13 +25,13 @@ export class MainProcess {
         this.db = new DB();
         this.setting = new Setting({ mainProcess: this });
         this.appBuilder = new AppBuilder({ mainProcess: this });
-        this.runner = new Runner({ mainProcess: this });
         this.webhookServer = new WebhookServer({ mainProcess: this });
+        this.runner = new Runner({ mainProcess: this });
 
         process.on('SIGINT', () => this.beforeTerminate_(0));
         process.on('SIGTERM', () => this.beforeTerminate_(0));
-        process.on('uncaughtException', () => this.beforeTerminate_(1));
-        process.on('unhandledRejection', () => this.beforeTerminate_(1));
+        process.on('uncaughtException', (err, origin) => this.beforeTerminate_(1, err, origin));
+        process.on('unhandledRejection', (err) => this.beforeTerminate_(1, err));
     }
 
     async initialize() {
@@ -48,9 +48,15 @@ export class MainProcess {
         this.beforeTerminates.push(func);
     }
 
-    private async beforeTerminate_(code?: number){
+    private async beforeTerminate_(code?: number, err?: any, origin?: any){
         for(const func of this.beforeTerminates){
             await func();
+        }
+        if(err){
+            console.error(err);
+        }
+        if(origin){
+            console.error(origin);
         }
         process.exit(code ?? 0);
     }
