@@ -15,7 +15,8 @@ export class Logger {
         const message = messages.map((e) => `${e}`).join(' ');
         if (fileName) {
             const stream = this.getStream(fileName);
-            stream.write(`[${this.getCurrentTimestamp()}] [LOG] ${stripANSI(message)}\n`);
+            let line = `[${this.getCurrentTimestamp()}] [LOG] ${stripANSI(message)}`.trimEnd() + '\n';
+            stream.write(line);
         }
         if (display) {
             console.log(message);
@@ -26,7 +27,8 @@ export class Logger {
         const error = errors.map((e) => `${e}`).join(' ');
         if (fileName) {
             const stream = this.getStream(fileName);
-            stream.write(`[${this.getCurrentTimestamp()}] [ERROR] ${stripANSI(error)}\n`);
+            let line = `[${this.getCurrentTimestamp()}] [ERROR] ${stripANSI(error)}`.trimEnd() + '\n';
+            stream.write(line);
         }
         if (display) {
             console.error(error);
@@ -37,7 +39,8 @@ export class Logger {
         const warn = warns.map((e) => `${e}`).join(' ');
         if (fileName) {
             const stream = this.getStream(fileName);
-            stream.write(`[${this.getCurrentTimestamp()}] [WARN] ${stripANSI(warn)}\n`);
+            let line = `[${this.getCurrentTimestamp()}] [WARN] ${stripANSI(warn)}`.trimEnd() + '\n';
+            stream.write(line);
         }
         if (display) {
             console.warn(warn);

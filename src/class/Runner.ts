@@ -14,6 +14,7 @@ export class Runner {
         this.mainProcess = mainProcess;
         this.mainProcess.beforeTerminate(async () => {
             pm2.disconnect();
+            await this.deleteBuildDataProcess(this.currentRunningBuildData.id);
         })
     }
     private get displayLog() {
@@ -56,7 +57,7 @@ export class Runner {
         }
         const processName = `bm.${buildId}`;
         const cwd = path.join(process.cwd(), 'build', buildId);
-        await this.pm2Connect();
+        await this.pm2Connect;
         this.mainProcess.logger.log(logPath, this.displayLog, `Build ${buildId} started.`);
         try {
             this.currentProcess = await new Promise<pm2.Proc>((res, rej) => {
@@ -64,8 +65,8 @@ export class Runner {
                     script: buildData.result.startScript,
                     cwd,
                     name: processName,
-                    output: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
-                    error: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
+                    //output: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
+                    //error: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
                     log_date_format: "[YYYY-MM-DD HH:mm:ss]",
                 }, (err, proc) => {
                     if (err) {
@@ -80,9 +81,6 @@ export class Runner {
             this.mainProcess.logger.error(logPath, this.displayLog, err);
             return false;
         }
-        finally {
-            pm2.disconnect();
-        }
         this.mainProcess.db.updateBuildData(buildId, { status: 'running' });
         this.currentRunningBuildData = buildData;
         return true;
@@ -90,7 +88,7 @@ export class Runner {
 
     private async deleteBuildDataProcess(buildId: string) {
         const processName = `bm.${buildId}`;
-        await this.pm2Connect();
+        await this.pm2Connect;
         try {
             const hasProcess = await new Promise<boolean>((res, rej) => {
                 pm2.list((err, list) => {
@@ -111,21 +109,33 @@ export class Runner {
                 });
             }
         }
-        finally {
-            pm2.disconnect();
-        }
+        catch{}
     }
 
-    private pm2Connect() {
-        return new Promise<void>((res, rej) => {
-            pm2.connect((err) => {
-                if (err) {
-                    return rej(err);
-                }
+    private pm2Connect = new Promise<void>((res, rej) => {
+        pm2.connect((err) => {
+            if (err) {
+                return rej(err);
+            }
+            pm2.launchBus((err, bus) => {
+                bus.on('log:out', (data) => {
+                    if (!this.currentRunningBuildData) return;
+                    if (data.process.name === `bm.${this.currentRunningBuildData.id}`) {
+                        const logPath = `run/${this.currentRunningBuildData.id}`;
+                        this.mainProcess.logger.log(logPath, this.displayLog, data.data);
+                    }
+                });
+                bus.on('log:err', (data) => {
+                    if (!this.currentRunningBuildData) return;
+                    if (data.process.name === `bm.${this.currentRunningBuildData.id}`) {
+                        const logPath = `run/${this.currentRunningBuildData.id}`;
+                        this.mainProcess.logger.error(logPath, this.displayLog, data.data);
+                    }
+                });
                 res();
-            })
-        });
-    }
+            });
+        })
+    });
 }
 
 export type RunnerConsturctorArg = {
