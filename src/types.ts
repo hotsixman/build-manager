@@ -1,4 +1,5 @@
 import { SpawnOption } from "./class/AppBuilder.js";
+import { BuildDataResult } from "./class/BuildData.js";
 
 export type BuildFunctionArg<
     Env extends Record<string, string>,
@@ -18,7 +19,7 @@ export type BuildFunctionArg<
 export type BuildFunction<
     Env extends Record<string, string>,
     Param extends Record<string, any>
-> = (arg: BuildFunctionArg<Env, Param>) => MaybePromise<Record<string, any>>;
+> = (arg: BuildFunctionArg<Env, Param>) => MaybePromise<BuildDataResult>;
 
 export type WebhookFunction<
     Param extends Record<string, any>

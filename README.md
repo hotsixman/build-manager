@@ -40,4 +40,3 @@
 # env
 - `.build.env`: 빌드 시 사용할 env 파일
 - `.prod.env`: 프로덕션 시 사용할 env 파일
-- `.dev.env`: 개발 시 사용할 env 파일

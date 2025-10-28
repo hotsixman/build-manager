@@ -16,15 +16,42 @@ export class MainProcess {
     readonly runner: Runner;
     readonly webhookServer: WebhookServer;
     readonly setting: Setting;
+    private beforeTerminates: (() => any)[] = [];
 
     constructor() {
         this.readLine = new ReadLine();
-        this.logger = new Logger();
+        this.logger = new Logger({mainProcess: this});
         this.envManager = new EnvManager();
         this.db = new DB();
-        this.setting = new Setting({mainProcess: this});
+        this.setting = new Setting({ mainProcess: this });
         this.appBuilder = new AppBuilder({ mainProcess: this });
-        this.runner = new Runner();
+        this.runner = new Runner({ mainProcess: this });
         this.webhookServer = new WebhookServer({ mainProcess: this });
+
+        process.on('SIGINT', () => this.beforeTerminate_(0));
+        process.on('SIGTERM', () => this.beforeTerminate_(0));
+        process.on('uncaughtException', () => this.beforeTerminate_(1));
+        process.on('unhandledRejection', () => this.beforeTerminate_(1));
+    }
+
+    async initialize() {
+        await this.startRunningBuildData();
+    }
+    private async startRunningBuildData() {
+        const running = this.db.getRunningBuildData();
+        if (running) {
+            this.runner.enqueue(running.id);
+        }
+    }
+
+    beforeTerminate(func: () => any){
+        this.beforeTerminates.push(func);
+    }
+
+    private async beforeTerminate_(code?: number){
+        for(const func of this.beforeTerminates){
+            await func();
+        }
+        process.exit(code ?? 0);
     }
 }

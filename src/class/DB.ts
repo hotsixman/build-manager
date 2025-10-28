@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { BuildData, BuildDataStatus } from './BuildData.js';
+import { BuildData, BuildDataResult, BuildDataStatus } from './BuildData.js';
 
 export class DB {
     static db: Database;
@@ -31,7 +31,7 @@ export class DB {
             return cache;
         }
 
-        const data = DB.db.query<DBSchema.buildData, { id: string }>("SELECT * FROM `buildData` WHERE `id` = $id").get({ id });
+        const data = DB.db.query<DBSchema.BuildData, { id: string }>("SELECT * FROM `buildData` WHERE `id` = $id").get({ id });
         if (!data) {
             return null;
         }
@@ -65,7 +65,7 @@ export class DB {
         return buildData;
     }
 
-    updateBuildData(id: string, { status, result }: { status?: BuildDataStatus, result?: Record<string, any> }) {
+    updateBuildData(id: string, { status, result }: { status?: BuildDataStatus, result?: BuildDataResult }) {
         const buildData = this.getBuildData(id);
         if (!buildData) {
             return false;
@@ -77,9 +77,26 @@ export class DB {
             id
         ]);
         buildData.status = status || buildData.status;
-        buildData.result = result === undefined ? result : buildData.result;
+        buildData.result = result === undefined ? buildData.result : result;
 
+        this.buildDataCache.set(id, buildData);
         return true;
+    }
+
+    getRunningBuildData() {
+        const data = DB.db.query<DBSchema.BuildData, [number]>("SELECT * FROM `buildData` WHERE `status` = $0").get(BuildData.statusEnum.running);
+        if (!data) {
+            return null;
+        }
+
+        const buildData = new BuildData({
+            id: data.id,
+            status: BuildData.statusReverseEnum[data.status],
+            result: data.result ? JSON.parse(data.result) : null,
+            createdTime: new Date(data.createdTime)
+        });
+        this.buildDataCache.set(buildData.id, buildData);
+        return buildData;
     }
 }
 
@@ -99,7 +116,7 @@ class BuildDataCache {
 }
 
 export namespace DBSchema {
-    export type buildData = {
+    export type BuildData = {
         id: string;
         status: number;
         result: string | null;

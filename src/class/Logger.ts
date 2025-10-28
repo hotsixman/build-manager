@@ -1,21 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { stripANSI } from "bun";
+import { MainProcess } from './MainProcess.js';
 
 export class Logger {
     private logStreamSet = new Map<string, fs.WriteStream>();
+    private mainProcess: MainProcess;
 
-    constructor() {
-        process.on('beforeExit', () => {
-            for (const stream of this.logStreamSet.values()) {
-                stream.end();
-            }
-        });
-        process.on('uncaughtException', () => {
-            for (const stream of this.logStreamSet.values()) {
-                stream.end();
-            }
-        })
+    constructor({ mainProcess }: LoggerConstructorArg) {
+        this.mainProcess = mainProcess;
     }
 
     log(fileName: string | null, display: boolean, ...messages: any[]) {
@@ -78,4 +71,8 @@ export class Logger {
         const date = new Date();
         return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
     };
+}
+
+export type LoggerConstructorArg = {
+    mainProcess: MainProcess;
 }

@@ -96,7 +96,6 @@ export class AppBuilder {
             this.mainProcess.db.updateBuildData(buildId, { status: 'buildError' });
             return false;
         }
-
         this.mainProcess.db.updateBuildData(buildId, {
             status: 'builded',
             result: buildResultData

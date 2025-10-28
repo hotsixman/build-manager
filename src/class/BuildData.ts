@@ -5,17 +5,16 @@ export class BuildData {
         building: 2,
         builded: 3,
         buildError: 4,
-        running: 5,
-        runError: 6
+        running: 5
     } as const;
-    static statusReverseEnum = ['enqueued', 'stopped', 'building', 'builded', 'buildError', 'running', 'runError'] as const;
+    static statusReverseEnum = ['enqueued', 'stopped', 'building', 'builded', 'buildError', 'running'] as const;
     static randomBuildId() {
         return Math.floor(Math.random() * (10 ** 16)).toString(16);
     }
 
     id: string;
     status: BuildDataStatus;
-    result?: Record<string, any>;
+    result?: BuildDataResult;
     createdTime: Date;
 
     constructor({
@@ -34,8 +33,10 @@ export class BuildData {
 export type BuildDataConstructorArg = {
     id: string;
     status?: BuildDataStatus;
-    result?: Record<string, any>;
+    result?: BuildDataResult;
     createdTime?: Date;
 }
 
-export type BuildDataStatus = 'enqueued' | 'stopped' | 'building' | 'builded' | 'buildError' | 'running' | 'runError';
+export type BuildDataStatus = 'enqueued' | 'stopped' | 'building' | 'builded' | 'buildError' | 'running';
+
+export type BuildDataResult = { startScript?: string } & Record<string, any>;

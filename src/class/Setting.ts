@@ -6,6 +6,8 @@ export class Setting {
     private mainProcess: MainProcess;
     maxBuildProcess: number = 1;
     webhookPort: number = 3000;
+    displayBuildLog: boolean = false;
+    displayRunLog: boolean = false;
 
     constructor({ mainProcess }: SettingConstructorArg) {
         this.mainProcess = mainProcess;
@@ -27,12 +29,20 @@ export class Setting {
         if (typeof (settingData.webhookPort) === "number") {
             this.webhookPort = Math.max(settingData.webhookPort, 1);
         }
+        if (typeof (settingData.displayBuildLog) === "boolean") {
+            this.displayBuildLog = Boolean(settingData.displayBuildLog);
+        }
+        if (typeof (settingData.displayRunLog) === "boolean") {
+            this.displayRunLog = Boolean(settingData.displayRunLog);
+        }
     }
 
     toJson() {
         return JSON.stringify({
             maxBuildProcess: this.maxBuildProcess,
-            webhookPort: this.webhookPort
+            webhookPort: this.webhookPort,
+            displayBuildLog: this.displayBuildLog,
+            displayRunLog: this.displayRunLog,
         });
     }
 }

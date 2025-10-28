@@ -24,8 +24,8 @@ export class WebhookServer {
                             }
                         }
                         const logPath = `build/${buildId}`;
-                        const webhookFunction = await this.loadWebhookFunction();
                         try {
+                            const webhookFunction = await this.loadWebhookFunction();
                             const webhookResult = await webhookFunction(req);
                             if (webhookResult.build) {
                                 this.mainProcess.logger.log(logPath, true, `Build ${buildId} enqueued.`)
@@ -60,6 +60,9 @@ export class WebhookServer {
             },
             port: this.mainProcess.setting.webhookPort
         });
+        this.mainProcess.beforeTerminate(async() => {
+            await this.server.stop();
+        })
     }
 
     private async loadWebhookFunction() {
