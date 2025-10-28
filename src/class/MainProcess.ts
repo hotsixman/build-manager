@@ -5,6 +5,7 @@ import { EnvManager } from "./EnvManager.js";
 import { Logger } from "./Logger.js";
 import { Runner } from "./Runner.js";
 import { WebhookServer } from "./WebhookServer.js";
+import { Setting } from "./Setting.js";
 
 export class MainProcess {
     readonly envManager: EnvManager;
@@ -14,13 +15,15 @@ export class MainProcess {
     readonly readLine: ReadLine;
     readonly runner: Runner;
     readonly webhookServer: WebhookServer;
+    readonly setting: Setting;
 
     constructor() {
-        this.envManager = new EnvManager();
-        this.appBuilder = new AppBuilder({ mainProcess: this });
-        this.db = new DB();
-        this.logger = new Logger();
         this.readLine = new ReadLine();
+        this.logger = new Logger();
+        this.envManager = new EnvManager();
+        this.db = new DB();
+        this.setting = new Setting({mainProcess: this});
+        this.appBuilder = new AppBuilder({ mainProcess: this });
         this.runner = new Runner();
         this.webhookServer = new WebhookServer({ mainProcess: this });
     }

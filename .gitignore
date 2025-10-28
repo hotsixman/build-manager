@@ -10,4 +10,5 @@ bun.lock
 build
 
 main.db
-./script/**/*
+script
+log

@@ -8,11 +8,12 @@ export class DB {
         this.db.run(`CREATE TABLE IF NOT EXISTS buildData (
             id TEXT PRIMARY KEY,
             status INTEGER NOT NULL,
-            result JSON
+            result JSON,
+            createdTime INTEGER NOT NULL
         );`);
     };
 
-    buildDataCache = new BuildDataCache();
+    private buildDataCache = new BuildDataCache();
 
     checkBuildId(id: string) {
         const data = DB.db.query<{ count: number }, { id: string }>("SELECT COUNT(*) as `count` FROM `buildData` WHERE `id` = $id").get({ id });
@@ -50,12 +51,14 @@ export class DB {
             return null;
         }
 
-        const buildData = new BuildData({ id });
+        const now = new Date();
+        const buildData = new BuildData({ id, createdTime: now });
 
-        DB.db.run<[string, number, string | null]>("INSERT INTO `buildData` (`id`, `status`, `result`) VALUES ($1, $2, $3)", [
+        DB.db.run<[string, number, string | null, number]>("INSERT INTO `buildData` (`id`, `status`, `result`, `createdTIme`) VALUES ($1, $2, $3, $4)", [
             buildData.id,
             BuildData.statusEnum[buildData.status],
-            buildData.result ? JSON.stringify(buildData.result) : null
+            buildData.result ? JSON.stringify(buildData.result) : null,
+            now.getTime()
         ]);
         this.buildDataCache.set(buildData.id, buildData);
 
@@ -100,5 +103,6 @@ export namespace DBSchema {
         id: string;
         status: number;
         result: string | null;
+        createdTime: number;
     }
 }

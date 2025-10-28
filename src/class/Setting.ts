@@ -5,6 +5,7 @@ import fs from 'node:fs';
 export class Setting {
     private mainProcess: MainProcess;
     maxBuildProcess: number = 1;
+    webhookPort: number = 3000;
 
     constructor({ mainProcess }: SettingConstructorArg) {
         this.mainProcess = mainProcess;
@@ -15,7 +16,7 @@ export class Setting {
             this.loadSettingData(settingData);
         }
         catch {
-            this.mainProcess.logger.error('Cannot load "setting.json".');
+            this.mainProcess.logger.warn(null, true, 'Cannot load "setting.json".');
         };
     }
 
@@ -23,11 +24,15 @@ export class Setting {
         if (typeof (settingData.maxBuildProcess) === "number") {
             this.maxBuildProcess = Math.max(settingData.maxBuildProcess, 1);
         }
+        if (typeof (settingData.webhookPort) === "number") {
+            this.webhookPort = Math.max(settingData.webhookPort, 1);
+        }
     }
 
     toJson() {
         return JSON.stringify({
-            maxBuildProcess: this.maxBuildProcess
+            maxBuildProcess: this.maxBuildProcess,
+            webhookPort: this.webhookPort
         });
     }
 }

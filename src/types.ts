@@ -1,3 +1,5 @@
+import { SpawnOption } from "./class/AppBuilder.js";
+
 export type BuildFunctionArg<
     Env extends Record<string, string>,
     Param extends Record<string, string>
@@ -5,6 +7,13 @@ export type BuildFunctionArg<
     env: Env;
     param: Param;
     buildId: string;
+    spawn: (cmd: string | string[], options?: SpawnOption) => Promise<number>;
+    cwd: string;
+    console: {
+        log: (...messages: any[]) => void;
+        error: (...messages: any[]) => void;
+        warn: (...messages: any[]) => void;
+    }
 };
 export type BuildFunction<
     Env extends Record<string, string>,
