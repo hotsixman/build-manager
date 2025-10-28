@@ -21,10 +21,17 @@ export type BuildFunction<
     Param extends Record<string, any>
 > = (arg: BuildFunctionArg<Env, Param>) => MaybePromise<BuildDataResult>;
 
+export type WebhookFunctionArg<
+    Env extends Record<string, string>
+> = {
+    request: Bun.BunRequest,
+    env: Env,
+    buildDir: string;
+}
 export type WebhookFunction<
     Env extends Record<string, string>,
     Param extends Record<string, any>
-> = (request: Bun.BunRequest, env: Env) => MaybePromise<
+> = (arg: WebhookFunctionArg<Env>) => MaybePromise<
     { build: true, param: Param, autorun: boolean } |
     { build: false }
 >;

@@ -25,7 +25,12 @@ export class WebhookServer {
                         const logPath = `build/${buildId}`;
                         try {
                             const webhookFunction = await this.loadWebhookFunction();
-                            const webhookResult = await webhookFunction(req, this.mainProcess.envManager.buildEnv);
+                            const buildDir = path.join(process.cwd(), 'build', buildId);
+                            const webhookResult = await webhookFunction({
+                                request: req,
+                                env: this.mainProcess.envManager.buildEnv,
+                                buildDir
+                            });
                             if (webhookResult.build) {
                                 this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, `Build ${buildId} enqueued.`)
                                 this.mainProcess.appBuilder.enqueue(buildId, webhookResult.param, (success) => {

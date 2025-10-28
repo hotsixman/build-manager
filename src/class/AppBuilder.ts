@@ -58,7 +58,7 @@ export class AppBuilder {
         if (!buildFunction) {
             return false;
         }
-        
+
         const logPath = `build/${buildId}`;
         const buildData = this.mainProcess.db.getBuildData(buildId);
         if (!buildData) {
@@ -136,23 +136,27 @@ export class AppBuilder {
 
     private spawn(cmd: string | string[], options: SpawnOption, buildId: string) {
         return new Promise<number>(async (res) => {
-            const { promise: exitcodePromise, resolve: exitCodeResolve } = Promise.withResolvers<number>();
             const childProcess = Bun.spawn(typeof (cmd) === "string" ? cmd.split(' ') : cmd, {
-                onExit(_, exitCode) {
-                    exitCodeResolve(exitCode);
-                },
                 stdin: options.stdin ? Buffer.from(options.stdin) : undefined,
-                cwd: options.cwd
+                cwd: options.cwd,
+                stdout: 'pipe',
+                stderr: 'pipe',
             });
-            const outputReader = childProcess.stdout.getReader();
             const textDecoder = new TextDecoder();
             const logPath = `build/${buildId}`;
-            while (true) {
-                const { value, done } = await outputReader.read();
-                this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, textDecoder.decode(value));
-                if (done) break;
-            }
-            res(await exitcodePromise);
+            await Promise.all([[childProcess.stdout.getReader(), 'out'] as const, [childProcess.stderr.getReader(), 'err'] as const].map(([reader, type]) => (async () => {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (type === "out") {
+                        this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, textDecoder.decode(value));
+                    }
+                    else {
+                        this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, textDecoder.decode(value));
+                    }
+                    if (done) break;
+                }
+            })()));
+            res(await childProcess.exited);
         })
     }
 }
