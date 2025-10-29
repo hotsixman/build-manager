@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { stripANSI } from "bun";
-import { MainProcess } from './MainProcess.js';
+import { Main } from './Main.js';
 
 export class Logger {
     private logStreamSet = new Map<string, fs.WriteStream>();
-    private mainProcess: MainProcess;
+    private main: Main;
 
-    constructor({ mainProcess }: LoggerConstructorArg) {
-        this.mainProcess = mainProcess;
+    constructor({ main }: LoggerConstructorArg) {
+        this.main = main;
     }
 
     log(fileName: string | null, display: boolean, ...messages: any[]) {
@@ -77,5 +77,5 @@ export class Logger {
 }
 
 export type LoggerConstructorArg = {
-    mainProcess: MainProcess;
+    main: Main;
 }

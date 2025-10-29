@@ -1,5 +1,5 @@
-import { MainProcess } from "./class/MainProcess.js";
+import { Main } from "./class/Main.js";
 
-const mainProcess = new MainProcess();
-await mainProcess.initialize();
+const main = new Main();
+await main.initialize();
 console.log('ready');

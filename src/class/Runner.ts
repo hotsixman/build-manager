@@ -1,31 +1,33 @@
 import path from "node:path";
-import { MainProcess } from "./MainProcess.js";
+import { Main } from "./Main.js";
 import pm2 from 'pm2';
-import { BuildData } from "./BuildData.js";
+import { BuildData, BuildedData } from "./BuildData.js";
+import { ProcessData } from "./ProcessData.js";
 
 export class Runner {
     private queue: string[] = [];
     private queueRunning: boolean = false;
-    private mainProcess: MainProcess;
-    private currentProcess?: pm2.Proc;
-    private currentRunningBuildData?: BuildData;
+    private main: Main;
+    private currentProcess?: ProcessData;
 
-    constructor({ mainProcess }: RunnerConsturctorArg) {
-        this.mainProcess = mainProcess;
-        this.mainProcess.beforeTerminate(async () => {
-            const currentRunningId = this.currentRunningBuildData.id;
-            await this.deleteBuildDataProcess(currentRunningId);
-            console.log(`Process ${currentRunningId} closed.`)
+    constructor({ main }: RunnerConsturctorArg) {
+        this.main = main;
+        this.main.beforeTerminate(async () => {
+            if (this.main.setting.cleanupProcess) {
+                const currentRunningId = this.currentProcess?.id;
+                await this.deleteProcess(currentRunningId, true);
+                console.log(`Process ${currentRunningId} stopped.`)
+            }
             pm2.disconnect();
             console.log('pm2 disconnected.')
         })
     }
     private get displayLog() {
-        return this.mainProcess.setting.displayRunLog;
+        return this.main.setting.displayRunLog;
     }
 
-    enqueue(buildId: string) {
-        this.queue.push(buildId);
+    enqueue(id: string) {
+        this.queue.push(id);
         this.runqueue();
     }
 
@@ -35,85 +37,124 @@ export class Runner {
 
         queueMicrotask(async () => {
             while (this.queue.length > 0) {
-                const buildId = this.queue.shift();
-                const logPath = `run/${buildId}`;
+                const id = this.queue.shift();
 
-                const currentRunning = this.mainProcess.db.getRunningBuildData();
+                const currentRunning = this.main.db.getProcessData();
+                let previousProcessDeleted: boolean;
                 if (currentRunning) {
-                    await this.deleteBuildDataProcess(currentRunning.id);
+                    previousProcessDeleted = await this.deleteProcess(currentRunning.id);
                 }
-                await this.startBuildDataProcess(buildId, logPath);
+                else {
+                    previousProcessDeleted = true;
+                }
+
+                if (previousProcessDeleted) {
+                    await this.startProcess(id);
+                }
             }
             this.queueRunning = false;
         })
     }
 
-    private async startBuildDataProcess(buildId: string, logPath: string) {
-        const buildData = this.mainProcess.db.getBuildData(buildId);
-        if (!buildData) {
-            this.mainProcess.logger.error(logPath, this.displayLog, `Build ${buildId} not found.`);
-            return false;
+    async init() {
+        const processData = this.main.db.getProcessData();
+        if (processData) {
+            if (!(await this.checkProcessRunning(processData.id))) {
+                await this.startProcess(processData.id, true);
+            }
+            this.currentProcess = processData;
         }
-        if (!buildData.result?.startScript) {
-            this.mainProcess.logger.error(logPath, this.displayLog, `Build ${buildId} has no start command.`);
-            return false;
-        }
-        const processName = `bm.${buildId}`;
-        const cwd = path.join(process.cwd(), 'build', buildId);
+    }
+
+    private async checkProcessRunning(id: string) {
         await this.pm2Connect;
-        this.mainProcess.logger.log(logPath, this.displayLog, `Build ${buildId} started.`);
+        const processName = `bm.${id}`;
+        const running = await new Promise<boolean>((res, rej) => {
+            pm2.list((err, list) => {
+                if (err) {
+                    return rej(err);
+                }
+                res(Boolean(list.find((p) => p.name === processName)));
+            })
+        });
+        return running;
+    }
+
+    private async startProcess(id: string, dontMakeProcessData?: boolean) {
+        const buildData: BuildData | BuildedData = this.main.db.getBuildData(id);
+        const logPath = `run/${id}`
+        if (!buildData) {
+            this.main.logger.error(logPath, this.displayLog, `Build ${id} not found.`);
+            return false;
+        }
+        if (buildData.status !== "builded" || !(buildData instanceof BuildedData)) {
+            this.main.logger.error(logPath, this.displayLog, `Build ${id} is not completed.`);
+            return false;
+        }
+
+        const processName = `bm.${id}`;
+        const cwd = path.join(process.cwd(), 'build', id);
+        await this.pm2Connect;
         try {
-            this.currentProcess = await new Promise<pm2.Proc>((res, rej) => {
+            await new Promise<void>((res, rej) => {
                 pm2.start({
-                    script: buildData.result.startScript,
+                    script: buildData.starting.script,
                     cwd,
                     name: processName,
-                    env: this.mainProcess.envManager.prodEnv,
+                    env: this.main.envManager.prodEnv,
+                    interpreter: buildData.starting.interpreter
                     //output: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
                     //error: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
-                    log_date_format: "[YYYY-MM-DD HH:mm:ss]",
+                    //log_date_format: "[YYYY-MM-DD HH:mm:ss]",
                 }, (err, proc) => {
                     if (err) {
                         return rej(err);
                     }
-                    res(proc);
+                    res();
                 })
             });
         }
         catch (err) {
-            this.mainProcess.logger.error(logPath, this.displayLog, `Starting ${buildId} failed.`);
-            this.mainProcess.logger.error(logPath, this.displayLog, err);
+            this.main.logger.error(logPath, this.displayLog, `Starting process ${id} failed.`);
+            this.main.logger.error(logPath, this.displayLog, err);
             return false;
         }
-        this.mainProcess.db.updateBuildData(buildId, { status: 'running' });
-        this.currentRunningBuildData = buildData;
+
+        if (!dontMakeProcessData) {
+            this.currentProcess = this.main.db.createProcessData(id);
+        }
+        this.main.logger.log(logPath, this.displayLog, `Process ${id} started.`);
         return true;
     }
 
-    private async deleteBuildDataProcess(buildId: string) {
-        const processName = `bm.${buildId}`;
-        await this.pm2Connect;
+    private async deleteProcess(id: string, cleanUp?: boolean) {
+        const processRunning = await this.checkProcessRunning(id);
+        if (!processRunning) {
+            return true;
+        }
+        const processName = `bm.${id}`;
         try {
-            const hasProcess = await new Promise<boolean>((res, rej) => {
-                pm2.list((err, list) => {
+            await new Promise<void>((res, rej) => {
+                pm2.delete(processName, (err) => {
                     if (err) {
                         return rej(err);
                     }
-                    res(Boolean(list.find((p) => p.name === processName)));
+                    res();
                 })
-            })
-            if (hasProcess) {
-                await new Promise<void>((res, rej) => {
-                    pm2.delete(processName, (err) => {
-                        if (err) {
-                            return rej(err);
-                        }
-                        res();
-                    })
-                });
-            }
+            });
         }
-        catch { }
+        catch (err) {
+            this.main.logger.error('main', true, err);
+            this.main.logger.error('main', true, `Cannot delete process ${id}`);
+            return false;
+        }
+
+        if (!cleanUp) {
+            this.main.db.deleteProcessData(id);
+        }
+
+        this.currentProcess = undefined;
+        return true;
     }
 
     private pm2Connect = new Promise<void>((res, rej) => {
@@ -126,17 +167,17 @@ export class Runner {
                     return rej(err);
                 }
                 bus.on('log:out', (data) => {
-                    if (!this.currentRunningBuildData) return;
-                    if (data.process.name === `bm.${this.currentRunningBuildData.id}`) {
-                        const logPath = `run/${this.currentRunningBuildData.id}`;
-                        this.mainProcess.logger.log(logPath, this.displayLog, data.data);
+                    if (!this.currentProcess) return;
+                    if (data.process.name === `bm.${this.currentProcess.id}`) {
+                        const logPath = `run/${this.currentProcess.id}`;
+                        this.main.logger.log(logPath, this.displayLog, data.data);
                     }
                 });
                 bus.on('log:err', (data) => {
-                    if (!this.currentRunningBuildData) return;
-                    if (data.process.name === `bm.${this.currentRunningBuildData.id}`) {
-                        const logPath = `run/${this.currentRunningBuildData.id}`;
-                        this.mainProcess.logger.error(logPath, this.displayLog, data.data);
+                    if (!this.currentProcess) return;
+                    if (data.process.name === `bm.${this.currentProcess.id}`) {
+                        const logPath = `run/${this.currentProcess.id}`;
+                        this.main.logger.error(logPath, this.displayLog, data.data);
                     }
                 });
                 res();
@@ -146,5 +187,5 @@ export class Runner {
 }
 
 export type RunnerConsturctorArg = {
-    mainProcess: MainProcess
+    main: Main
 }

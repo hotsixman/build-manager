@@ -7,7 +7,7 @@ import { Runner } from "./Runner.js";
 import { WebhookServer } from "./WebhookServer.js";
 import { Setting } from "./Setting.js";
 
-export class MainProcess {
+export class Main {
     readonly envManager: EnvManager;
     readonly appBuilder: AppBuilder;
     readonly db: DB;
@@ -20,13 +20,13 @@ export class MainProcess {
 
     constructor() {
         this.readLine = new ReadLine();
-        this.logger = new Logger({mainProcess: this});
+        this.logger = new Logger({main: this});
         this.envManager = new EnvManager();
         this.db = new DB();
-        this.setting = new Setting({ mainProcess: this });
-        this.appBuilder = new AppBuilder({ mainProcess: this });
-        this.webhookServer = new WebhookServer({ mainProcess: this });
-        this.runner = new Runner({ mainProcess: this });
+        this.setting = new Setting({ main: this });
+        this.appBuilder = new AppBuilder({ main: this });
+        this.webhookServer = new WebhookServer({ main: this });
+        this.runner = new Runner({ main: this });
 
         process.on('SIGINT', () => this.beforeTerminate_(0));
         process.on('SIGTERM', () => this.beforeTerminate_(0));
@@ -35,13 +35,7 @@ export class MainProcess {
     }
 
     async initialize() {
-        await this.startRunningBuildData();
-    }
-    private async startRunningBuildData() {
-        const running = this.db.getRunningBuildData();
-        if (running) {
-            this.runner.enqueue(running.id);
-        }
+        await this.runner.init();
     }
 
     beforeTerminate(func: () => any){

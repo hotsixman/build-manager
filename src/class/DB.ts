@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite';
-import { BuildData, BuildDataResult, BuildDataStatus } from './BuildData.js';
+import { BuildData, BuildDataStatus, BuildedData, BuildedDataStarting } from './BuildData.js';
+import { ProcessData } from './ProcessData.js';
 
 export class DB {
     static db: Database;
@@ -9,9 +10,56 @@ export class DB {
             id TEXT PRIMARY KEY,
             status INTEGER NOT NULL,
             result JSON,
+            starting JSON,
+            createdTime INTEGER NOT NULL
+        );`);
+        this.db.run(`CREATE TABLE IF NOT EXISTS processData (
+            id TEXT PRIMARY KEY,
             createdTime INTEGER NOT NULL
         );`);
     };
+    static from = {
+        buildData(data: DBSchema.BuildData) {
+            if (data.status === BuildData.statusEnum.builded) {
+                return new BuildedData({
+                    id: data.id,
+                    createdTime: new Date(data.createdTime),
+                    starting: JSON.parse(data.starting),
+                    result: JSON.parse(data.result)
+                })
+            }
+            else {
+                return new BuildData({
+                    id: data.id,
+                    status: BuildData.statusReverseEnum[data.status],
+                    createdTime: new Date(data.createdTime)
+                })
+            }
+        },
+        processData(data: DBSchema.ProcessData) {
+            return new ProcessData({
+                id: data.id,
+                createdTime: new Date(data.createdTime)
+            })
+        }
+    };
+    static to = {
+        buildData(buildData: BuildData): DBSchema.BuildData {
+            return {
+                id: buildData.id,
+                status: BuildData.statusEnum[buildData.status],
+                createdTime: buildData.createdTime.getTime(),
+                result: (buildData instanceof BuildedData) ? JSON.stringify(buildData.result) : null as string | null,
+                starting: (buildData instanceof BuildedData) ? JSON.stringify(buildData.starting) : null as string | null,
+            }
+        },
+        processData(processData: ProcessData): DBSchema.ProcessData {
+            return {
+                id: processData.id,
+                createdTime: processData.createdTime.getTime()
+            }
+        }
+    }
 
     private buildDataCache = new BuildDataCache();
 
@@ -36,12 +84,7 @@ export class DB {
             return null;
         }
 
-        const buildData = new BuildData({
-            id: data.id,
-            status: BuildData.statusReverseEnum[data.status],
-            result: data.result ? JSON.parse(data.result) : undefined
-        });
-
+        const buildData = DB.from.buildData(data);
         this.buildDataCache.set(buildData.id, buildData);
         return buildData;
     }
@@ -54,49 +97,78 @@ export class DB {
         const now = new Date();
         const buildData = new BuildData({ id, createdTime: now });
 
-        DB.db.run<[string, number, string | null, number]>("INSERT INTO `buildData` (`id`, `status`, `result`, `createdTIme`) VALUES ($1, $2, $3, $4)", [
-            buildData.id,
-            BuildData.statusEnum[buildData.status],
-            buildData.result ? JSON.stringify(buildData.result) : null,
-            now.getTime()
+        const data = DB.to.buildData(buildData);
+        DB.db.run<[string, number, string | null, string | null, number]>("INSERT INTO `buildData` (`id`, `status`, `result`, `starting`, `createdTIme`) VALUES ($1, $2, $3, $4, $5)", [
+            data.id,
+            data.status,
+            null,
+            null,
+            data.createdTime
         ]);
         this.buildDataCache.set(buildData.id, buildData);
 
         return buildData;
     }
 
-    updateBuildData(id: string, { status, result }: { status?: BuildDataStatus, result?: BuildDataResult }) {
+    updateBuildData(id: string, arg: UpdateBuildDataArg) {
         const buildData = this.getBuildData(id);
         if (!buildData) {
             return false;
         }
 
-        DB.db.run<[number, string | null, string]>("UPDATE `buildData` SET `status` = $1, `result` = $2 WHERE `id` = $3", [
-            BuildData.statusEnum[status ?? buildData.status],
-            result === undefined ? (buildData.result ? JSON.stringify(buildData.result) : null) : JSON.stringify(result),
-            id
-        ]);
-        buildData.status = status || buildData.status;
-        buildData.result = result === undefined ? buildData.result : result;
+        let updatedBuildData: BuildData;
+        if (arg.status === "builded") {
+            updatedBuildData = new BuildedData({
+                id,
+                createdTime: buildData.createdTime,
+                starting: arg.starting,
+                result: arg.result
+            });
+        }
+        else {
+            updatedBuildData = new BuildData({
+                id,
+                createdTime: buildData.createdTime,
+                status: arg.status
+            })
+        }
 
-        this.buildDataCache.set(id, buildData);
+        const dbData = DB.to.buildData(updatedBuildData);
+        DB.db.run<[number, string | null, string | null, number, string]>(
+            "UPDATE `buildData` SET `status` = $0, `result` = $1, `starting` = $2, `createdTime` = $3 WHERE `id` = $4", [
+            dbData.status,
+            dbData.result,
+            dbData.starting,
+            dbData.createdTime,
+            dbData.id
+        ]);
+
+        this.buildDataCache.set(id, updatedBuildData);
         return true;
     }
 
-    getRunningBuildData() {
-        const data = DB.db.query<DBSchema.BuildData, [number]>("SELECT * FROM `buildData` WHERE `status` = $0").get(BuildData.statusEnum.running);
+    getProcessData() {
+        const data = DB.db.query<DBSchema.ProcessData, []>("SELECT * FROM `processData`").get();
         if (!data) {
             return null;
         }
+        return DB.from.processData(data);
+    }
 
-        const buildData = new BuildData({
-            id: data.id,
-            status: BuildData.statusReverseEnum[data.status],
-            result: data.result ? JSON.parse(data.result) : null,
-            createdTime: new Date(data.createdTime)
-        });
-        this.buildDataCache.set(buildData.id, buildData);
-        return buildData;
+    createProcessData(id: string) {
+        const processData = new ProcessData({ id });
+        const dbData = DB.to.processData(processData);
+        DB.db.run<[string, number]>("INSERT INTO `processData` (`id`, `createdTime`) VALUES ($0, $1)", [
+            dbData.id,
+            dbData.createdTime
+        ]);
+        return processData
+    }
+
+    deleteProcessData(id: string) {
+        DB.db.run<[string]>("DELETE FROM `processData` WHERE `id` = $0", [
+            id
+        ]);
     }
 }
 
@@ -113,6 +185,10 @@ class BuildDataCache {
         }
         this.map.set(id, buildData);
     }
+
+    delete(id: string) {
+        this.map.delete(id);
+    }
 }
 
 export namespace DBSchema {
@@ -120,6 +196,19 @@ export namespace DBSchema {
         id: string;
         status: number;
         result: string | null;
+        starting: string | null;
         createdTime: number;
     }
+    export type ProcessData = {
+        id: string;
+        createdTime: number;
+    }
+}
+
+type UpdateBuildDataArg = {
+    status: Exclude<BuildDataStatus, 'builded'>
+} | {
+    status: 'builded',
+    starting: BuildedDataStarting,
+    result?: Record<string, any>
 }

@@ -2,18 +2,18 @@ import path from "node:path";
 import fs from 'node:fs';
 import fsPromise from 'node:fs/promises';
 import { BuildFunction } from "../types.js";
-import { MainProcess } from "./MainProcess.js";
+import { Main } from "./Main.js";
 
 export class AppBuilder {
-    private mainProcess: MainProcess;
+    private main: Main;
     private buildFunction?: BuildFunction<any, any>;
     private queue: { buildId: string, param: Record<string, any>, next: (success: boolean) => void }[] = [];
     private queueRunning: boolean = false;
 
     constructor({
-        mainProcess
+        main
     }: AppBuilderConstructorArg) {
-        this.mainProcess = mainProcess;
+        this.main = main;
     }
 
     private async loadBuildFunction() {
@@ -60,51 +60,52 @@ export class AppBuilder {
         }
 
         const logPath = `build/${buildId}`;
-        const buildData = this.mainProcess.db.getBuildData(buildId);
+        const buildData = this.main.db.getBuildData(buildId);
         if (!buildData) {
-            this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, `Cannot find build data where build id is ${buildId}`);
+            this.main.logger.error(logPath, this.main.setting.displayBuildLog, `Cannot find build data where build id is ${buildId}`);
             return false;
         }
 
-        this.mainProcess.db.updateBuildData(buildId, { status: 'building' });
+        this.main.db.updateBuildData(buildId, { status: 'building' });
         try {
-            const cwd = path.join(process.cwd(), 'build', buildId);
-            await fsPromise.mkdir(cwd, { recursive: true, });
-            var buildResultData = await buildFunction({
+            const buildDir = path.join(process.cwd(), 'build', buildId);
+            await fsPromise.mkdir(buildDir, { recursive: true, });
+            var { result, starting } = await buildFunction({
                 buildId,
-                env: this.mainProcess.envManager.buildEnv,
+                env: this.main.envManager.buildEnv,
                 param: param,
                 spawn: async (cmd, options) => {
-                    return this.spawn(cmd, { cwd, ...options }, buildId);
+                    return this.spawn(cmd, { cwd: buildDir, ...options }, buildId);
                 },
-                cwd,
+                buildDir,
                 console: {
                     log: (...messages) => {
-                        this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, ...messages);
+                        this.main.logger.log(logPath, this.main.setting.displayBuildLog, ...messages);
                     },
                     error: (...messages) => {
-                        this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, ...messages);
+                        this.main.logger.error(logPath, this.main.setting.displayBuildLog, ...messages);
                     },
                     warn: (...messages) => {
-                        this.mainProcess.logger.warn(logPath, this.mainProcess.setting.displayBuildLog, ...messages);
+                        this.main.logger.warn(logPath, this.main.setting.displayBuildLog, ...messages);
                     }
                 }
             });
         }
         catch (err) {
-            this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, err);
-            this.mainProcess.db.updateBuildData(buildId, { status: 'buildError' });
+            this.main.logger.error(logPath, this.main.setting.displayBuildLog, err);
+            this.main.db.updateBuildData(buildId, { status: 'buildError' });
             return false;
         }
-        this.mainProcess.db.updateBuildData(buildId, {
+        this.main.db.updateBuildData(buildId, {
             status: 'builded',
-            result: buildResultData
+            result: result,
+            starting
         });
         return true;
     }
 
     enqueue(buildId: string, param: Record<string, any>, next: (success: boolean) => void) {
-        this.mainProcess.db.updateBuildData(buildId, { status: 'enqueued' });
+        this.main.db.updateBuildData(buildId, { status: 'enqueued' });
         this.queue.push({
             buildId: buildId,
             param,
@@ -126,7 +127,7 @@ export class AppBuilder {
                     next(success);
                 }
                 catch (err) {
-                    this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, err);
+                    this.main.logger.error(logPath, this.main.setting.displayBuildLog, err);
                     next(false);
                 }
             }
@@ -148,10 +149,10 @@ export class AppBuilder {
                 while (true) {
                     const { value, done } = await reader.read();
                     if (type === "out") {
-                        this.mainProcess.logger.error(logPath, this.mainProcess.setting.displayBuildLog, textDecoder.decode(value));
+                        this.main.logger.error(logPath, this.main.setting.displayBuildLog, textDecoder.decode(value));
                     }
                     else {
-                        this.mainProcess.logger.log(logPath, this.mainProcess.setting.displayBuildLog, textDecoder.decode(value));
+                        this.main.logger.log(logPath, this.main.setting.displayBuildLog, textDecoder.decode(value));
                     }
                     if (done) break;
                 }
@@ -162,7 +163,7 @@ export class AppBuilder {
 }
 
 export type AppBuilderConstructorArg = {
-    mainProcess: MainProcess;
+    main: Main;
 }
 
 export type BuildArg = {

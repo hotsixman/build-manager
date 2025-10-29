@@ -10,7 +10,7 @@
 - 빌드된 프로그램의 데이터 및 버전을 관리하는 DB 관리
 
 # Class
-## MainProcess
+## Main
 - 메인 프로세스 관리
 
 ## AppBuilder

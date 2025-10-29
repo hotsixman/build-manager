@@ -1,22 +1,23 @@
 import path from "node:path";
-import { MainProcess } from "./MainProcess.js";
+import { Main } from "./Main.js";
 import fs from 'node:fs';
 
-export class Setting {
-    private mainProcess: MainProcess;
+export class Setting implements SettingInterface {
+    private main: Main;
     maxBuildProcess: number = 1;
     webhookPort: number = 3000;
     displayBuildLog: boolean = false;
     displayRunLog: boolean = false;
+    cleanupProcess: boolean = true;
 
-    constructor({ mainProcess }: SettingConstructorArg) {
-        this.mainProcess = mainProcess;
+    constructor({ main }: SettingConstructorArg) {
+        this.main = main;
         try {
             const jsonPath = path.join(process.cwd(), 'setting.json');
             const json = fs.readFileSync(jsonPath, 'utf-8');
             const settingData = JSON.parse(json);
             this.loadSettingData(settingData);
-            console.log('Successfully loaded setting.json')
+            console.log('Successfully loaded setting.json');
         }
         catch {
             console.warn('Cannot load setting.json');
@@ -36,6 +37,9 @@ export class Setting {
         if (typeof (settingData.displayRunLog) === "boolean") {
             this.displayRunLog = Boolean(settingData.displayRunLog);
         }
+        if(typeof(settingData.cleanupProcess) === "boolean"){
+            this.cleanupProcess = Boolean(settingData.cleanupProcess);
+        }
     }
 
     toJson() {
@@ -48,6 +52,14 @@ export class Setting {
     }
 }
 
+interface SettingInterface {
+    webhookPort: number;
+    displayBuildLog: boolean;
+    displayRunLog: boolean;
+    cleanupProcess: boolean;
+
+}
+
 export type SettingConstructorArg = {
-    mainProcess: MainProcess;
+    main: Main;
 }

@@ -1,5 +1,5 @@
 import { createInterface, Interface } from 'node:readline';
-import { MainProcess } from './MainProcess.js';
+import { Main } from './Main.js';
 
 export class ReadLine {
     static interface?: Interface;
@@ -32,5 +32,5 @@ export class ReadLine {
 }
 
 export type ReadlineConstuctorArg = {
-    mainProcess: MainProcess;
+    main: Main;
 };

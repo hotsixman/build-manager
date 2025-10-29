@@ -1,5 +1,5 @@
 import { SpawnOption } from "./class/AppBuilder.js";
-import { BuildDataResult } from "./class/BuildData.js";
+import { BuildDataResult, BuildedDataStarting } from "./class/BuildData.js";
 
 export type BuildFunctionArg<
     Env extends Record<string, string>,
@@ -9,7 +9,7 @@ export type BuildFunctionArg<
     param: Param;
     buildId: string;
     spawn: (cmd: string | string[], options?: SpawnOption) => Promise<number>;
-    cwd: string;
+    buildDir: string;
     console: {
         log: (...messages: any[]) => void;
         error: (...messages: any[]) => void;
@@ -19,7 +19,7 @@ export type BuildFunctionArg<
 export type BuildFunction<
     Env extends Record<string, string>,
     Param extends Record<string, any>
-> = (arg: BuildFunctionArg<Env, Param>) => MaybePromise<BuildDataResult>;
+> = (arg: BuildFunctionArg<Env, Param>) => MaybePromise<{ result?: BuildDataResult, starting: BuildedDataStarting }>;
 
 export type WebhookFunctionArg<
     Env extends Record<string, string>
