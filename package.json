@@ -6,7 +6,10 @@
   },
   "scripts": {
     "build:win": "bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile ./build/bm-win.exe",
-    "build:mac-arm": "bun build ./src/index.ts --compile --target=bun-darwin-arm64 --outfile ./build/bm-mac-arm.bin"
+    "build:mac-arm": "bun build ./src/index.ts --compile --target=bun-darwin-arm64 --outfile ./build/bm-mac-arm.bin",
+    "build:mac-x64": "bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile ./build/bm-mac-x64.bin",
+    "build:linux-arm": "bun build ./src/index.ts --compile --target=bun-linux-arm64-musl --outfile ./build/bm-linux-arm.bin",
+    "build:linux-x64": "bun build ./src/index.ts --compile --target=bun-linux-x64-musl --outfile ./build/bm-linux-x64.bin"
   },
   "type": "module",
   "devDependencies": {
