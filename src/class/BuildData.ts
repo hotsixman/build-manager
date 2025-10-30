@@ -48,4 +48,5 @@ export type BuildDataResult = Record<string, any>;
 export type BuildedDataStarting = {
     script: string;
     interpreter?: string;
+    args?: string | string[];
 }

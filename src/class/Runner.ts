@@ -124,7 +124,8 @@ export class Runner {
                     cwd,
                     name: processName,
                     env: this.main.envManager.prodEnv,
-                    interpreter: buildData.starting.interpreter
+                    interpreter: buildData.starting.interpreter || 'node',
+                    args: buildData.starting.args
                     //output: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
                     //error: path.join(process.cwd(), 'log', 'run', `${buildId}.log`),
                     //log_date_format: "[YYYY-MM-DD HH:mm:ss]",
