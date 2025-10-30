@@ -57,6 +57,7 @@ export class Main {
         if (origin) {
             console.error(origin);
         }
+        console.log('Bye Bye!');
         process.exit(code ?? 0);
     }
 }

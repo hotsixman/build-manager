@@ -16,6 +16,7 @@ export class CLI {
             console.log('1. Current process');
             console.log('2. Builds');
             console.log('3. Setting');
+            console.log('4. Stop');
             const answer = await this.readLine.line();
             console.log('');
             switch (answer) {
@@ -30,6 +31,10 @@ export class CLI {
                 case '3': {
                     await this.setting();
                     break;
+                }
+                case '4': {
+                    process.emit('SIGTERM');
+                    return;
                 }
                 default: {
                     console.log('Invalid option.')
