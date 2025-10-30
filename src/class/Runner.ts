@@ -31,6 +31,38 @@ export class Runner {
         this.runqueue();
     }
 
+    async init() {
+        const processData = this.main.db.getProcessData();
+        if (processData) {
+            if (!(await this.checkProcessRunning(processData.id))) {
+                this.main.logger.log('main', true, `Process ${processData.id} starting.`)
+                await this.startProcess(processData.id, true);
+            }
+            this.currentProcess = processData;
+        }
+    }
+
+    cloneCurrentProcess() {
+        const clone = structuredClone(this.currentProcess);
+        if (!clone) return undefined;
+        Object.setPrototypeOf(clone, ProcessData);
+        return clone;
+    }
+
+    async deleteCurrentProcess() {
+        if (this.currentProcess) {
+            await this.deleteProcess(this.currentProcess.id);
+        }
+    }
+
+    async restartCurrentProcess() {
+        if (this.currentProcess) {
+            const id = this.currentProcess.id;
+            await this.deleteProcess(this.currentProcess.id);
+            this.enqueue(id);
+        }
+    }
+
     private runqueue() {
         if (this.queueRunning) return;
         this.queueRunning = true;
@@ -54,16 +86,6 @@ export class Runner {
             }
             this.queueRunning = false;
         })
-    }
-
-    async init() {
-        const processData = this.main.db.getProcessData();
-        if (processData) {
-            if (!(await this.checkProcessRunning(processData.id))) {
-                await this.startProcess(processData.id, true);
-            }
-            this.currentProcess = processData;
-        }
     }
 
     private async checkProcessRunning(id: string) {
@@ -152,6 +174,7 @@ export class Runner {
         if (!cleanUp) {
             this.main.db.deleteProcessData(id);
         }
+        this.main.logger.log(`run/${id}`, this.displayLog, `Process ${id} stopped.`)
 
         this.currentProcess = undefined;
         return true;

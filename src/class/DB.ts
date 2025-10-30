@@ -89,6 +89,15 @@ export class DB {
         return buildData;
     }
 
+    getBuildDatas(limit: number, offset: number) {
+        const rows = DB.db.query<
+            DBSchema.BuildData,
+            { limit: number, offset: number }
+        >("SELECT * FROM `buildData` ORDER BY `createdTime` DESC LIMIT $limit OFFSET $offset ")
+            .all({ limit, offset });
+        return rows.map((row) => DB.from.buildData(row));
+    }
+
     createBuildData(id: string): BuildData | null {
         if (this.checkBuildId(id)) {
             return null;

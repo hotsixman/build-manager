@@ -24,9 +24,11 @@ export class ReadLine {
     line() {
         return new Promise<string>((res) => {
             const rl = ReadLine.loadInterface();
-            rl.on('line', (line) => {
+            rl.on('line', callback);
+            function callback(line: string) {
+                rl.off('line', callback)
                 res(line);
-            })
+            }
         })
     }
 }

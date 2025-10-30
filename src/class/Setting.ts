@@ -13,15 +13,13 @@ export class Setting implements SettingInterface {
     constructor({ main }: SettingConstructorArg) {
         this.main = main;
         try {
-            const jsonPath = path.join(process.cwd(), 'setting.json');
-            const json = fs.readFileSync(jsonPath, 'utf-8');
-            const settingData = JSON.parse(json);
-            this.loadSettingData(settingData);
+            this.load();
             console.log('Successfully loaded setting.json');
         }
         catch {
             console.warn('Cannot load setting.json');
         };
+        this.save();
     }
 
     private loadSettingData(settingData: Record<string, any>) {
@@ -37,18 +35,33 @@ export class Setting implements SettingInterface {
         if (typeof (settingData.displayRunLog) === "boolean") {
             this.displayRunLog = Boolean(settingData.displayRunLog);
         }
-        if(typeof(settingData.cleanupProcess) === "boolean"){
+        if (typeof (settingData.cleanupProcess) === "boolean") {
             this.cleanupProcess = Boolean(settingData.cleanupProcess);
         }
     }
 
+    load() {
+        const jsonPath = path.join(process.cwd(), 'setting.json');
+        const json = fs.readFileSync(jsonPath, 'utf-8');
+        const settingData = JSON.parse(json);
+        this.loadSettingData(settingData);
+    }
+
+    async save() {
+        await Bun.write(path.join(process.cwd(), 'setting.json'), this.toJson());
+    }
+
     toJson() {
-        return JSON.stringify({
+        return JSON.stringify(this.toObject());
+    }
+
+    toObject() {
+        return {
             maxBuildProcess: this.maxBuildProcess,
             webhookPort: this.webhookPort,
             displayBuildLog: this.displayBuildLog,
             displayRunLog: this.displayRunLog,
-        });
+        }
     }
 }
 
