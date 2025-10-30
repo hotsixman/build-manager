@@ -61,6 +61,7 @@ export class Setting implements SettingInterface {
             webhookPort: this.webhookPort,
             displayBuildLog: this.displayBuildLog,
             displayRunLog: this.displayRunLog,
+            cleanupProcess: this.cleanupProcess
         }
     }
 }
